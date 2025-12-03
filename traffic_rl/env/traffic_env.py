@@ -167,6 +167,18 @@ class TrafficEnv(gym.Env):
             "step": self.step_count,
         }
 
+        # Expose per-lane metrics for quick debugging (single-lane focus).
+        primary_sid = self.runner.observers[0].stable_id if self.runner.observers else None
+        if primary_sid and primary_sid in last_metrics:
+            m = last_metrics[primary_sid]
+            info.update({
+                "state": m.get("state"),
+                "queue_count": m.get("queue", 0.0),
+                "avg_wait": m.get("avg_wait", 0.0),
+                "num_long_wait_60s": m.get("num_long_wait_60s", 0.0),
+                "time_in_state": m.get("time_in_state", 0.0),
+            })
+
         return obs, reward, done, info
 
     def _get_obs(self, metrics: dict) -> np.ndarray:
@@ -208,7 +220,7 @@ class TrafficEnv(gym.Env):
                 discharge_norm = np.clip(discharge / MAX_FLOW, 0.0, 1.0)
                 time_in_state_norm = np.clip(time_in_state / MAX_TIME_IN_STATE, 0.0, 1.0)
 
-                obs.extend([
+                per_tl_features = [
                     queue_norm,
                     queue_ema_norm,
                     avg_wait_norm,
@@ -217,7 +229,18 @@ class TrafficEnv(gym.Env):
                     arrival_norm,
                     discharge_norm,
                     time_in_state_norm,
-                ])
+                ]
+                obs.extend(per_tl_features)
+
+                # Debug: raw + normalized values for this TL (helps align ROI/ticks to obs)
+                debug_features = per_tl_features + [float(self.current_phase)]
+                print(
+                    f"[OBS][{sid}] q={queue:.1f}, q_ema={queue_ema:.1f}, "
+                    f"avg_wait={avg_wait:.1f}, max_wait={max_wait:.1f}, "
+                    f"long={num_long}, arr_ema={arrival:.1f}, "
+                    f"dis_ema={discharge:.1f}, t_state={time_in_state:.2f}"
+                )
+                print(f"[OBS][{sid}] normalized={debug_features}")
             else:
                 # No metrics available, use zeros
                 obs.extend([0.0] * self.per_tl_features)

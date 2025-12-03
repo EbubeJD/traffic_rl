@@ -8,9 +8,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 import carla
 import random
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Sequence
 
-from config import TOWN, GROUP_INDEX, NUM_AUTOPILOT, DT
+from config import TOWN, GROUP_INDEX, NUM_AUTOPILOT, DT, CONTROL_TL_IDS
 from utils.carla_helpers import get_tl_groups, tl_stable_id, spawn_autopilot_vehicles
 from observers.tl_observer import TLObserver
 
@@ -35,6 +35,7 @@ class TrafficRunner:
         group_index: int = GROUP_INDEX,
         num_vehicles: int = NUM_AUTOPILOT,
         dt: float = DT,
+        control_tl_ids: Optional[Sequence[str]] = None,
     ):
         """
         Initialize TrafficRunner.
@@ -53,6 +54,9 @@ class TrafficRunner:
         self.group_index = group_index
         self.num_vehicles = num_vehicles
         self.dt = dt
+        # Stable IDs for the specific TL(s)/lane(s) to control.
+        # Defaults to CONTROL_TL_IDS configured in config.py so we can point at a known ROI/ticks set.
+        self.control_tl_ids = list(control_tl_ids) if control_tl_ids is not None else list(CONTROL_TL_IDS)
 
         # CARLA objects
         self.client: Optional[carla.Client] = None
@@ -72,7 +76,7 @@ class TrafficRunner:
 
         print(f"[TrafficRunner] Connecting to CARLA at {self.carla_host}:{self.carla_port}...")
         self.client = carla.Client(self.carla_host, self.carla_port)
-        self.client.set_timeout(10.0)
+        self.client.set_timeout(30.0)
 
         print(f"[TrafficRunner] Loading world '{self.town}'...")
         self.world = self.client.load_world(self.town, map_layers=carla.MapLayer.NONE)
@@ -90,7 +94,27 @@ class TrafficRunner:
         if self.group_index >= len(groups):
             raise IndexError(f"GROUP_INDEX {self.group_index} out of range (found {len(groups)} groups)")
 
-        self.group = groups[self.group_index]
+        selected_group = groups[self.group_index]
+
+        # Optionally narrow the group to just the configured stable_id(s) (e.g., road5_lane-1).
+        if self.control_tl_ids:
+            filtered_actors = []
+            for tl in selected_group["actors"]:
+                sid = tl_stable_id(self.world, tl)
+                if sid in self.control_tl_ids:
+                    filtered_actors.append(tl)
+
+            if filtered_actors:
+                selected_group = {
+                    **selected_group,
+                    "actors": filtered_actors,
+                    "ids": frozenset(a.id for a in filtered_actors),
+                }
+                print(f"[TrafficRunner] Narrowed to {len(filtered_actors)} TL(s) by CONTROL_TL_IDS={self.control_tl_ids}")
+            else:
+                print(f"[TrafficRunner] CONTROL_TL_IDS {self.control_tl_ids} not found in group {self.group_index}; using full group.")
+
+        self.group = selected_group
         print(f"[TrafficRunner] Selected group {self.group_index} with {len(self.group['actors'])} traffic lights")
 
         # Create observers

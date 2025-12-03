@@ -28,7 +28,7 @@ def spawn_autopilot_vehicles(world, client, num=NUM_AUTOPILOT):
     return vehicles
 
 def main():
-    client = carla.Client("localhost", 2000); client.set_timeout(10.0)
+    client = carla.Client("localhost", 2000); client.set_timeout(30.0)
     world = client.load_world(TOWN, map_layers=carla.MapLayer.NONE)
     s = world.get_settings(); s.synchronous_mode=True; s.fixed_delta_seconds=DT; world.apply_settings(s)
 
@@ -60,7 +60,7 @@ def main():
                 except Exception as e:
                     print(f"[OBS ERROR] TL {getattr(ob,'stable_id','?')}: {e}")
 
-            if time.time() - t0 > 120: break
+            if time.time() - t0 > 300: break
     finally:
         print("[cleanup] destroying actors…")
         for ob in observers:

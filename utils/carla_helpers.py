@@ -79,3 +79,35 @@ def fly_to_camera(world, cam, dz=12.0):
         carla.Transform(carla.Location(tf.location.x, tf.location.y, tf.location.z+dz),
                         carla.Rotation(pitch=-90))
     )
+
+
+def spawn_autopilot_vehicles(world, client, num):
+    """Spawn autopilot vehicles; utility shared by runner/envs."""
+    if num <= 0:
+        return []
+
+    import random
+    random.seed(7)
+
+    bp_lib = world.get_blueprint_library()
+    spawns = world.get_map().get_spawn_points()
+    random.shuffle(spawns)
+
+    tm = client.get_trafficmanager()
+    tm_port = tm.get_port()
+    tm.set_synchronous_mode(True)
+    tm.global_percentage_speed_difference(10.0)
+
+    vehicles = []
+    for sp in spawns[: num * 2]:
+        if len(vehicles) >= num:
+            break
+        bp = random.choice(bp_lib.filter("vehicle.*"))
+        if bp.has_attribute("role_name"):
+            bp.set_attribute("role_name", "autopilot")
+        v = world.try_spawn_actor(bp, sp)
+        if v:
+            v.set_autopilot(True, tm_port)
+            vehicles.append(v)
+    print(f"[spawn] {len(vehicles)} vehicles")
+    return vehicles
