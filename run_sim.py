@@ -1,9 +1,11 @@
 import time, random
+import os, csv 
 import carla
 
-from config import (TOWN, GROUP_INDEX, NUM_AUTOPILOT, DT)
+from config import (TOWN, GROUP_INDEX, NUM_AUTOPILOT, DT, SAVE_ROOT)
 from utils.carla_helpers import get_tl_groups, fly_to_camera
 from observers.tl_observer import TLObserver
+
 
 def spawn_autopilot_vehicles(world, client, num=NUM_AUTOPILOT):
     if num <= 0: return []
@@ -27,6 +29,38 @@ def spawn_autopilot_vehicles(world, client, num=NUM_AUTOPILOT):
     print(f"[spawn] {len(vehicles)} vehicles")
     return vehicles
 
+def log_groups(groups):
+    """
+    Write a CSV mapping group_index → roads / lanes / TL ids
+    and print a summary to the console.
+    """
+    town_dir = os.path.join(SAVE_ROOT, TOWN)
+    os.makedirs(town_dir, exist_ok=True)
+    out_path = os.path.join(town_dir, "tl_groups.csv")
+
+    with open(out_path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["group_index", "rep_tl_id", "road_ids", "lane_ids", "actor_ids"])
+        for idx, g in enumerate(groups):
+            roads = g.get("roads", [])
+            lanes = g.get("lanes", [])
+            actor_ids = [a.id for a in g["actors"]]
+            w.writerow([
+                idx,
+                g["rep"].id,
+                ";".join(str(r) for r in roads),
+                ";".join(str(l) for l in lanes),
+                ";".join(str(i) for i in actor_ids),
+            ])
+
+    print(f"[groups] wrote metadata to {out_path}")
+    print(f"[groups] found {len(groups)} traffic-light groups:")
+    for idx, g in enumerate(groups):
+        roads = g.get("roads", [])
+        lanes = g.get("lanes", [])
+        print(f"  [G{idx}] rep={g['rep'].id} roads={roads} lanes={lanes} actors={len(g['actors'])}")
+
+
 def main():
     client = carla.Client("localhost", 2000); client.set_timeout(10.0)
     world = client.load_world(TOWN, map_layers=carla.MapLayer.NONE)
@@ -34,6 +68,9 @@ def main():
 
     groups = get_tl_groups(world)
     if not groups: raise RuntimeError("No traffic-light groups found.")
+
+    log_groups(groups)
+
     if GROUP_INDEX >= len(groups): raise IndexError(f"Bad GROUP_INDEX {GROUP_INDEX}")
     group = groups[GROUP_INDEX]
 

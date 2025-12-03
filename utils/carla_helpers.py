@@ -12,14 +12,35 @@ def _right_from_yaw(yaw_deg):
     return carla.Vector3D(math.cos(r), math.sin(r), 0.0)
 
 def get_tl_groups(world):
+    m = world.get_map()
     groups, seen = [], set()
+
     for tl in world.get_actors().filter("traffic.traffic_light*"):
         gl = tl.get_group_traffic_lights() or [tl]
         key = frozenset(a.id for a in gl)
-        if key in seen: 
+        if key in seen:
             continue
+
         seen.add(key)
-        groups.append({"ids": key, "actors": list(gl), "rep": gl[0]})
+        roads = set()
+        lanes = set()
+        for a in gl:
+            wp = m.get_waypoint(
+                _tl_center(a),
+                project_to_road=True,
+                lane_type=carla.LaneType.Driving
+            )
+            roads.add(wp.road_id)
+            lanes.add(wp.lane_id)
+
+        groups.append({
+            "ids": key,
+            "actors": list(gl),
+            "rep": gl[0],
+            "roads": sorted(roads),
+            "lanes": sorted(lanes),
+        })
+
     groups.sort(key=lambda g: min(g["ids"]))
     return groups
 
