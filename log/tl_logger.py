@@ -31,6 +31,11 @@ class TLLogger:
         self.recent_discharges = 0
         self._sec_accum = 0.0
 
+        # Expose metrics for RL environment
+        self.avg_wait = 0.0
+        self.max_wait = 0.0
+        self.num_long_wait_60s = 0
+
     def get_state_name(self):
         try:
             return self.tl_actor.get_state().name
@@ -55,6 +60,11 @@ class TLLogger:
         avg_wait = float(np.mean(waiting_now)) if waiting_now else 0.0
         max_wait = float(np.max(waiting_now)) if waiting_now else 0.0
         long_waiters = sum(1 for w in waiting_now if w >= 60.0)
+
+        # Expose metrics for RL environment
+        self.avg_wait = avg_wait
+        self.max_wait = max_wait
+        self.num_long_wait_60s = long_waiters
 
         if self._sec_accum >= 1.0 - 1e-6:
             self.discharge_ema = EMA_ALPHA_DISCH*(self.recent_discharges / self._sec_accum) + (1-EMA_ALPHA_DISCH)*self.discharge_ema

@@ -135,5 +135,10 @@ class TLObserver:
             "state": self.logger.last_state,
             "time_in_state": self.logger.time_in_state,
             "queue": queue_count,
-            "queue_ema": self.logger.queue_ema
+            "queue_ema": self.logger.queue_ema,
+            "avg_wait": self.logger.avg_wait,
+            "max_wait": self.logger.max_wait,
+            "num_long_wait_60s": self.logger.num_long_wait_60s,
+            "arrival_ema": self.logger.arrival_ema,
+            "discharge_ema": self.logger.discharge_ema,
         }
