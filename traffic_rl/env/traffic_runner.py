@@ -195,7 +195,13 @@ class TrafficRunner:
         for v in self.vehicles:
             try:
                 v.destroy()
-            except:
+            except RuntimeError as e:
+                if "destroyed actor" in str(e):
+                    # Swallow double-destroy during heavy respawn churn
+                    pass
+                else:
+                    raise
+            except Exception:
                 pass
         self.vehicles = []
 
@@ -221,14 +227,20 @@ class TrafficRunner:
         for obs in self.observers:
             try:
                 obs.destroy()
-            except:
+            except RuntimeError as e:
+                if "destroyed actor" in str(e):
+                    pass
+            except Exception:
                 pass
 
         # Destroy vehicles
         for v in self.vehicles:
             try:
                 v.destroy()
-            except:
+            except RuntimeError as e:
+                if "destroyed actor" in str(e):
+                    pass
+            except Exception:
                 pass
 
         # Disable synchronous mode
