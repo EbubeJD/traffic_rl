@@ -3,7 +3,7 @@
 TOWN = "Town10HD_Opt"
 # Stable ID for the TL/lane we want to control for single-lane tests.
 # Change this to point at a different ROI/ticks directory (e.g., tl_roadX_laneY_*).
-CONTROL_TL_IDS = ["road5_lane-1_s10058", "road6_lane1_s569", "road18_lane5_s532"]
+CONTROL_TL_IDS = ["road5_lane-1_s10058"]  # keep to 1 TL for fastest runs
 # Fallback group index if CONTROL_TL_IDS cannot be found (kept for compatibility).
 GROUP_INDEX = 0
 NUM_AUTOPILOT = 8              # number of NPC vehicles (0 to skip)
