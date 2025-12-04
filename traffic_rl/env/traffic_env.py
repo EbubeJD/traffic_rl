@@ -14,6 +14,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 import numpy as np
 import gym
 from gym import spaces
+import csv
+import json
 import carla
 
 from traffic_rl.env.traffic_runner import TrafficRunner
@@ -90,6 +92,13 @@ class TrafficEnv(gym.Env):
         # Episode state
         self.current_phase = 0
         self.step_count = 0
+        self._action_logger = None
+        self._action_log_writer = None
+        self._transition_logger = None
+        self._transition_log_writer = None
+        self._episode_id = 0
+        self._last_obs = None
+        self._maybe_init_action_log()
 
         print(f"[TrafficEnv] Environment initialized")
         print(f"  - Observation dim: {self.obs_dim} (= {self.num_tls} TLs × {self.per_tl_features} features + 1 phase)")
@@ -109,6 +118,7 @@ class TrafficEnv(gym.Env):
         # Reset episode state
         self.current_phase = 0
         self.step_count = 0
+        self._episode_id += 1
 
         # Apply initial phase
         self._apply_phase(self.current_phase)
@@ -120,6 +130,7 @@ class TrafficEnv(gym.Env):
         # Get initial metrics and observation
         metrics = self.runner.step()
         obs = self._get_obs(metrics)
+        self._last_obs = obs
 
         return obs
 
@@ -142,7 +153,7 @@ class TrafficEnv(gym.Env):
             self._apply_phase(self.current_phase)
 
         # Step simulation multiple times (e.g., 5 seconds = 100 ticks at 0.05s)
-        steps = int(5.0 / self.runner.dt)  # 5 second decision interval
+        steps = int(2.0 / self.runner.dt)  # 5 second decision interval
         step_metrics = []
         for _ in range(steps):
             m = self.runner.step(self._get_light_states())
@@ -179,6 +190,11 @@ class TrafficEnv(gym.Env):
                 "num_long_wait_60s": m.get("num_long_wait_60s", 0.0),
                 "time_in_state": m.get("time_in_state", 0.0),
             })
+
+        # Decision-interval action/transition log (for offline/BC dataset creation)
+        self._log_action_step(action, reward, info, last_metrics)
+        self._log_transition(action, reward, done, obs)
+        self._last_obs = obs
 
         return obs, reward, done, info
 
@@ -338,6 +354,114 @@ class TrafficEnv(gym.Env):
         Returns None since we apply states directly in _apply_phase.
         """
         return None
+
+    def _maybe_init_action_log(self):
+        """
+        Initialize decision-interval action logger alongside ticks.csv.
+        """
+        if not self.runner.observers:
+            return
+        # Use the first observer's save_dir to colocate the action log
+        save_dir = getattr(self.runner.observers[0], "save_dir", None)
+        if not save_dir:
+            return
+        try:
+            os.makedirs(save_dir, exist_ok=True)
+            self._action_logger = open(os.path.join(save_dir, "actions.csv"), "w", newline="")
+            self._action_log_writer = csv.writer(self._action_logger)
+            self._action_log_writer.writerow([
+                "decision_step",
+                "episode_id",
+                "action",
+                "phase",
+                "reward",
+                "state",
+                "queue_count",
+                "avg_wait",
+                "num_long_wait_60s",
+                "time_in_state",
+            ])
+            # Transition log with obs/next_obs for offline RL/BC
+            self._transition_logger = open(os.path.join(save_dir, "transitions.csv"), "w", newline="")
+            self._transition_log_writer = csv.writer(self._transition_logger)
+            self._transition_log_writer.writerow([
+                "decision_step",
+                "episode_id",
+                "action",
+                "reward",
+                "done",
+                "obs_json",
+                "next_obs_json",
+            ])
+            if self._action_logger:
+                self._action_logger.flush()
+            if self._transition_logger:
+                self._transition_logger.flush()
+        except Exception:
+            self._action_logger = None
+            self._action_log_writer = None
+            self._transition_logger = None
+            self._transition_log_writer = None
+
+    def _log_action_step(self, action, reward, info, last_metrics):
+        """
+        Write one decision-interval record for offline/BC use.
+        """
+        if (not self._action_log_writer) and self.runner.observers:
+            # Try to initialize lazily if it failed earlier
+            self._maybe_init_action_log()
+        if not self._action_log_writer or not self.runner.observers:
+            return
+        primary_sid = self.runner.observers[0].stable_id
+        m = last_metrics.get(primary_sid, {}) if isinstance(last_metrics, dict) else {}
+        try:
+            self._action_log_writer.writerow([
+                self.step_count,
+                self._episode_id,
+                action,
+                info.get("phase"),
+                reward,
+                m.get("state"),
+                m.get("queue", 0.0),
+                m.get("avg_wait", 0.0),
+                m.get("num_long_wait_60s", 0.0),
+                m.get("time_in_state", 0.0),
+            ])
+            if self._action_logger:
+                self._action_logger.flush()
+        except Exception:
+            pass
+
+    def _log_transition(self, action, reward, done, next_obs):
+        """Write obs->next_obs transition for offline RL/BC."""
+        if (not self._transition_log_writer) and self.runner.observers:
+            self._maybe_init_action_log()
+        if not self._transition_log_writer or self._last_obs is None:
+            return
+        try:
+            self._transition_log_writer.writerow([
+                self.step_count,
+                self._episode_id,
+                action,
+                reward,
+                done,
+                json.dumps(self._last_obs.tolist()),
+                json.dumps(next_obs.tolist()),
+            ])
+            if self._transition_logger:
+                self._transition_logger.flush()
+        except Exception:
+            pass
+
+    def close(self):
+        """Close any open resources (action log + runner)."""
+        try:
+            if self._action_logger:
+                self._action_logger.close()
+            if self._transition_logger:
+                self._transition_logger.close()
+        finally:
+            self.runner.close()
 
 
 # Sanity check test
