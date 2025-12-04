@@ -46,7 +46,17 @@ def load_transitions(path: str) -> List[Tuple[np.ndarray, int, float, np.ndarray
             try:
                 action = int(row["action"])
                 reward = float(row["reward"])
-                done = float(row["done"])
+                done_str = row["done"]
+                if isinstance(done_str, str):
+                    ds = done_str.strip().lower()
+                    if ds in ("true", "t", "1", "yes"):
+                        done = 1.0
+                    elif ds in ("false", "f", "0", "no"):
+                        done = 0.0
+                    else:
+                        done = float(done_str)
+                else:
+                    done = float(done_str)
                 obs = np.array(json.loads(row["obs_json"]), dtype=np.float32)
                 next_obs = np.array(json.loads(row["next_obs_json"]), dtype=np.float32)
                 out.append((obs, action, reward, next_obs, done))
