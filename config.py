@@ -27,3 +27,6 @@ STRIPE_CONFIRM_FRAMES = 2       # frames in stripe before counting crossing
 EMA_ALPHA_QUEUE = 0.3
 EMA_ALPHA_ARRIVAL = 0.2
 EMA_ALPHA_DISCH = 0.2
+
+# Simulation timestep (sync mode)
+DT = 0.1
