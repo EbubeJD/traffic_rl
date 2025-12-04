@@ -10,6 +10,7 @@ Usage:
 """
 
 import argparse
+import csv
 import json
 import os
 from typing import List, Tuple
@@ -50,15 +51,11 @@ class MLPPolicy(nn.Module):
 def load_transitions_csv(path: str) -> List[Tuple[np.ndarray, int]]:
     transitions = []
     with open(path, "r") as f:
-        header = f.readline()
-        for line in f:
-            parts = line.strip().split(",", 5)
-            if len(parts) < 6:
-                continue
+        reader = csv.DictReader(f)
+        for row in reader:
             try:
-                action = int(parts[2])
-                obs_json = parts[5]
-                obs = np.array(json.loads(obs_json), dtype=np.float32)
+                action = int(row["action"])
+                obs = np.array(json.loads(row["obs_json"]), dtype=np.float32)
                 transitions.append((obs, action))
             except Exception:
                 continue
