@@ -22,7 +22,7 @@ def main():
     args = parser.parse_args()
 
     runner = TrafficRunner()
-    env = TrafficEnv(runner)
+    env = TrafficEnv(runner, debug_obs=True)
 
     obs = env.reset()
     print(f"[INIT] obs shape={obs.shape}, phase={env.current_phase}")

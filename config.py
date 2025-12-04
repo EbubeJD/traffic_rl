@@ -10,7 +10,9 @@ NUM_AUTOPILOT = 40              # number of NPC vehicles (0 to skip)
 RES = (1280, 720)               # (W, H)
 CAM_FOV = 70
 SAVE_ROOT = "outputs"
-SAVE_EVERY_N = 10               # save every Nth frame
+# Image saving is disabled by default to avoid huge disk usage at scale.
+# Set to a positive integer (e.g., 10) if you need periodic snapshots.
+SAVE_EVERY_N = 0                # 0 = do not save frames/visualizations
 DT = 0.05                       # world.fixed_delta_seconds (sync mode)
 
 # Detection / Tracking

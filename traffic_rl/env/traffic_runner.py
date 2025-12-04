@@ -76,7 +76,7 @@ class TrafficRunner:
 
         print(f"[TrafficRunner] Connecting to CARLA at {self.carla_host}:{self.carla_port}...")
         self.client = carla.Client(self.carla_host, self.carla_port)
-        self.client.set_timeout(30.0)
+        self.client.set_timeout(60.0)
 
         print(f"[TrafficRunner] Loading world '{self.town}'...")
         self.world = self.client.load_world(self.town, map_layers=carla.MapLayer.NONE)

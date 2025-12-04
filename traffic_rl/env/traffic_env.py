@@ -52,7 +52,7 @@ class TrafficEnv(gym.Env):
         -(wait_weight * avg_wait + queue_weight * queue + long_weight * long_waiters + change_penalty)
     """
 
-    def __init__(self, runner: TrafficRunner, episode_steps: int = 120):
+    def __init__(self, runner: TrafficRunner, episode_steps: int = 120, debug_obs: bool = False):
         """
         Initialize environment.
 
@@ -64,6 +64,7 @@ class TrafficEnv(gym.Env):
 
         self.runner = runner
         self.episode_steps = episode_steps
+        self.debug_obs = debug_obs  # when True, print per-step observation debug (for sanity tests)
 
         # Initialize runner
         if not self.runner.is_initialized:
@@ -232,15 +233,16 @@ class TrafficEnv(gym.Env):
                 ]
                 obs.extend(per_tl_features)
 
-                # Debug: raw + normalized values for this TL (helps align ROI/ticks to obs)
-                debug_features = per_tl_features + [float(self.current_phase)]
-                print(
-                    f"[OBS][{sid}] q={queue:.1f}, q_ema={queue_ema:.1f}, "
-                    f"avg_wait={avg_wait:.1f}, max_wait={max_wait:.1f}, "
-                    f"long={num_long}, arr_ema={arrival:.1f}, "
-                    f"dis_ema={discharge:.1f}, t_state={time_in_state:.2f}"
-                )
-                print(f"[OBS][{sid}] normalized={debug_features}")
+                if self.debug_obs:
+                    # Debug: raw + normalized values for this TL (helps align ROI/ticks to obs)
+                    debug_features = per_tl_features + [float(self.current_phase)]
+                    print(
+                        f"[OBS][{sid}] q={queue:.1f}, q_ema={queue_ema:.1f}, "
+                        f"avg_wait={avg_wait:.1f}, max_wait={max_wait:.1f}, "
+                        f"long={num_long}, arr_ema={arrival:.1f}, "
+                        f"dis_ema={discharge:.1f}, t_state={time_in_state:.2f}"
+                    )
+                    print(f"[OBS][{sid}] normalized={debug_features}")
             else:
                 # No metrics available, use zeros
                 obs.extend([0.0] * self.per_tl_features)

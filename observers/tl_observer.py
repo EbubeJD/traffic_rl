@@ -67,7 +67,7 @@ class TLObserver:
         h, w = im.height, im.width
         img = np.frombuffer(im.raw_data, dtype=np.uint8).reshape((h, w, 4))[:, :, :3].copy()
 
-        if frame_id % SAVE_EVERY_N == 0:
+        if SAVE_EVERY_N > 0 and frame_id % SAVE_EVERY_N == 0:
             cv2.imwrite(os.path.join(self.save_dir, f"frame_{frame_id:06d}.png"), img)
 
         self.logger.update_state_timer(DT)
@@ -126,7 +126,7 @@ class TLObserver:
 
         self.logger.tick_log(frame_id, queue_count, waiting_times_now, crossings)
 
-        if frame_id % SAVE_EVERY_N == 0:
+        if SAVE_EVERY_N > 0 and frame_id % SAVE_EVERY_N == 0:
             cv2.imwrite(os.path.join(self.save_dir, f"vis_{frame_id:06d}.png"), img)
 
         return {
