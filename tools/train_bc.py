@@ -67,8 +67,25 @@ def train_bc(args):
     if not transitions:
         raise SystemExit(f"No transitions loaded from {args.transitions}")
 
+    # Dataset statistics for optional normalization
+    obs_mat = np.stack([o for o, _ in transitions], axis=0)
+    obs_mean = obs_mat.mean(axis=0)
+    obs_std = obs_mat.std(axis=0) + 1e-6  # avoid divide-by-zero
+    if args.normalize:
+        transitions = [((o - obs_mean) / obs_std, a) for o, a in transitions]
+
     obs_dim = transitions[0][0].shape[0]
+    hidden_sizes = tuple(int(x) for x in args.hidden_sizes.split(",") if x)
     dataset = TransitionDataset(transitions)
+
+    # Optional class weights for imbalanced labels
+    weight_tensor = None
+    if args.class_weighted:
+        _, actions = zip(*transitions)
+        counts = np.bincount(actions, minlength=args.n_actions)
+        counts = np.maximum(counts, 1)
+        weights = counts.sum() / (len(counts) * counts)
+        weight_tensor = torch.tensor(weights, dtype=torch.float32)
 
     val_size = max(1, int(0.1 * len(dataset)))
     train_size = len(dataset) - val_size
@@ -78,9 +95,12 @@ def train_bc(args):
     val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = MLPPolicy(obs_dim=obs_dim, hidden_sizes=(64, 64), n_actions=args.n_actions).to(device)
+    model = MLPPolicy(obs_dim=obs_dim, hidden_sizes=hidden_sizes, n_actions=args.n_actions).to(device)
     optim = torch.optim.Adam(model.parameters(), lr=args.lr)
-    loss_fn = nn.CrossEntropyLoss()
+    if weight_tensor is not None:
+        loss_fn = nn.CrossEntropyLoss(weight=weight_tensor.to(device))
+    else:
+        loss_fn = nn.CrossEntropyLoss()
 
     def run_epoch(loader, train: bool):
         total_loss, total, correct = 0.0, 0, 0
@@ -123,6 +143,9 @@ def main():
     parser.add_argument("--n_actions", type=int, default=2)
     parser.add_argument("--log_every", type=int, default=5)
     parser.add_argument("--out", type=str, default="bc_policy.pt", help="Where to save the trained policy")
+    parser.add_argument("--hidden_sizes", type=str, default="64,64", help="Comma-separated hidden layer sizes")
+    parser.add_argument("--normalize", action="store_true", help="Normalize observations using dataset mean/std")
+    parser.add_argument("--class_weighted", action="store_true", help="Use inverse-frequency class weights")
     args = parser.parse_args()
     train_bc(args)
 
