@@ -15,7 +15,7 @@ REWARD_WEIGHTS = {
 # PPO hyperparameters
 PPO_CONFIG = {
     # Training
-    "n_steps": 2048,              # Steps per rollout
+    "n_steps": 512,              # Steps per rollout
     "batch_size": 64,             # Minibatch size
     "n_epochs": 10,               # Optimization epochs per update
     "learning_rate": 3e-4,        # Learning rate
@@ -30,12 +30,12 @@ PPO_CONFIG = {
 
 # Environment settings
 ENV_CONFIG = {
-    "episode_steps": 120,         # Decision steps per episode (~10 minutes at 5s/step)
+    "episode_steps": 50,         # Decision steps per episode
 }
 
 # Training settings
 TRAIN_CONFIG = {
     "total_timesteps": 100_000,   # Total training steps
-    "save_freq": 10_000,          # Save checkpoint every N steps
+    "save_freq": 500,          # Save checkpoint every N steps
     "log_freq": 1,                # Log every N episodes
 }
