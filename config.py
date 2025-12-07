@@ -6,7 +6,7 @@ TOWN = "Town10HD_Opt"
 CONTROL_TL_IDS = ["road5_lane-1_s10058"]
 # Fallback group index if CONTROL_TL_IDS cannot be found (kept for compatibility).
 GROUP_INDEX = 0
-NUM_AUTOPILOT = 10              # number of NPC vehicles (0 to skip)
+NUM_AUTOPILOT = 50              # number of NPC vehicles (0 to skip)
 RES = (640, 360)               # (W, H)
 CAM_FOV = 70
 SAVE_ROOT = "outputs"
